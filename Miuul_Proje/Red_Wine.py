@@ -1,199 +1,142 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import StandardScaler, label_binarize
-from sklearn.metrics import (accuracy_score, classification_report,
-                             confusion_matrix, roc_auc_score, roc_curve,
-                             ConfusionMatrixDisplay)
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score, classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from xgboost import XGBRegressor, XGBClassifier
+from lightgbm import LGBMRegressor, LGBMClassifier
 import warnings
 
 warnings.filterwarnings("ignore")
 
-# 1. Veri Yükleme ve Ön İşleme
-df = pd.read_csv("red")
+# Veri yükleme
+df = pd.read_csv(r"C:\Users\Msi-nb\PycharmProjects\PyCharmMiscProject\Miuul_Proje\winequality-red.csv")
 
-
-# Kalite etiketlerini 3 sınıfa dönüştürme
-def quality_label(q):
+# Kaliteyi kategorilere ayır (string label)
+def label_quality(q):
     if q <= 5:
-        return 0  # Düşük
+        return "Düşük"
     elif q == 6:
-        return 1  # Orta
+        return "Orta"
     else:
-        return 2  # Yüksek
+        return "Yüksek"
 
+df["quality_label"] = df["quality"].apply(label_quality)
 
-df["quality_label"] = df["quality"].apply(quality_label)
-
-# Özellik mühendisliği
+# Özellik mühendisliği (feature engineering)
 df["total_acidity"] = df["fixed acidity"] + df["volatile acidity"]
-df["sulfur_ratio"] = df["free sulfur dioxide"] / (df["total sulfur dioxide"] + 1e-6)
+df["sulfur_ratio"] = df["free sulfur dioxide"] / (df["total sulfur dioxide"] + 1e-6)  # Bölme sıfıra karşı önlem
 df["alcohol_to_density"] = df["alcohol"] / df["density"]
 
-# 2. Görselleştirmeler
-plt.figure(figsize=(15, 20))
+# --- REGRESYON VERİLERİ ---
+X_reg = df.drop(["quality", "quality_label"], axis=1)
+y_reg = df["quality"]
 
-# Kalite dağılımı
-plt.subplot(4, 2, 1)
-sns.countplot(x='quality_label', data=df, palette='Reds')
-plt.title('Şarap Kalite Dağılımı')
+X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(X_reg, y_reg, test_size=0.2, random_state=42)
 
-# Alkol vs Kalite
-plt.subplot(4, 2, 2)
-sns.boxplot(x='quality_label', y='alcohol', data=df, palette='Reds')
-plt.title('Alkol İçeriği ve Kalite İlişkisi')
+reg_models = {
+    "RandomForest": RandomForestRegressor(random_state=42),
+    "XGBoost": XGBRegressor(random_state=42, n_estimators=200),
+    "LightGBM": LGBMRegressor(random_state=42, n_estimators=200),
+    "LinearRegression": LinearRegression()
+}
 
-# Uçucu Asitlik vs Kalite
-plt.subplot(4, 2, 3)
-sns.boxplot(x='quality_label', y='volatile acidity', data=df, palette='Reds')
-plt.title('Uçucu Asitlik ve Kalite İlişkisi')
+reg_results = []
 
-# Toplam Asitlik vs Kalite
-plt.subplot(4, 2, 4)
-sns.boxplot(x='quality_label', y='total_acidity', data=df, palette='Reds')
-plt.title('Toplam Asitlik ve Kalite İlişkisi')
+def plot_feature_importance(model, X, name):
+    # Feature importance ya da coef varsa çıkar
+    if hasattr(model, "feature_importances_"):
+        importance = model.feature_importances_
+    elif hasattr(model, "coef_"):
+        if model.coef_.ndim == 1:
+            importance = np.abs(model.coef_)
+        else:
+            importance = np.abs(model.coef_[0])
+    else:
+        print(f"{name} için feature importance bulunamadı.")
+        return
+    feat_df = pd.DataFrame({"Feature": X.columns, "Importance": importance})
+    feat_df = feat_df.sort_values(by="Importance", ascending=False)
+    plt.figure(figsize=(8, 4))
+    plt.bar(feat_df["Feature"], feat_df["Importance"], color="darkred")
+    plt.xticks(rotation=45)
+    plt.title(f"{name} - Feature Importance")
+    plt.tight_layout()
+    plt.show()
 
-# Korelasyon Matrisi
-plt.subplot(4, 2, 5)
-corr = df.corr()
-sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".1f")
-plt.title('Özellikler Arası Korelasyon Matrisi')
+print("\n--- REGRESYON SONUÇLARI ---")
+for name, model in reg_models.items():
+    model.fit(X_train_reg, y_train_reg)
+    y_pred_reg = model.predict(X_test_reg)
+    mse = mean_squared_error(y_test_reg, y_pred_reg)
+    r2 = r2_score(y_test_reg, y_pred_reg)
+    reg_results.append({"Model": name, "MSE": mse, "R2": r2})
+    print(f"{name}: MSE={mse:.4f} | R²={r2:.4f}")
+    plot_feature_importance(model, X_reg, name)
 
-# Özellik Önem Dereceleri (Model sonrasında güncellenecek)
-plt.subplot(4, 2, 6)
-importance = pd.Series(np.random.rand(len(df.columns) - 2),
-                       index=df.drop(['quality', 'quality_label'], axis=1).columns)
-importance.sort_values().plot(kind='barh', color='darkred')
-plt.title('Özellik Önem Dereceleri (Placeholder)')
+reg_df = pd.DataFrame(reg_results)
+best_reg = reg_df.loc[reg_df["R2"].idxmax()]
+print(f"\nRegresyonda en iyi model: {best_reg['Model']} (R2={best_reg['R2']:.4f})")
 
-plt.tight_layout()
+reg_df.plot.bar(x="Model", y="R2", legend=False, color="darkred", figsize=(8,4), title="Regresyon Modelleri R² Skorları")
+plt.ylabel("R² Skoru")
+plt.ylim(0,1)
 plt.show()
 
-# 3. Modelleme
-X = df.drop(["quality", "quality_label"], axis=1)
-y = df["quality_label"]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+# --- SINIFLANDIRMA VERİLERİ ---
+X_clf = df.drop(["quality", "quality_label"], axis=1)
+y_clf = df["quality_label"]
 
-# Ölçeklendirme
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# XGBoost zorunluluğu nedeniyle string label'ları sayısala çeviriyoruz
+label_map = {"Düşük": 0, "Orta": 1, "Yüksek": 2}
+inv_label_map = {v: k for k, v in label_map.items()}  # Ters dönüşüm haritası
 
+y_clf_num = y_clf.map(label_map)
 
+# Train-test split, stratify ile dengesiz sınıflar için dengeli dağılım sağlanır
+X_train_clf, X_test_clf, y_train_clf_num, y_test_clf_num = train_test_split(
+    X_clf, y_clf_num, test_size=0.2, random_state=42, stratify=y_clf_num
+)
 
+clf_models = {
+    "RandomForest": RandomForestClassifier(random_state=42),
+    "XGBoost": XGBClassifier(random_state=42, n_estimators=200, use_label_encoder=False, eval_metric="mlogloss"),
+    "LightGBM": LGBMClassifier(random_state=42, n_estimators=200),
+    "LogisticRegression": LogisticRegression(max_iter=1000)
+}
 
-    #################MODEL REGRESYON##############
+clf_results = []
 
-    from sklearn.model_selection import train_test_split
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.linear_model import LinearRegression
-    from xgboost import XGBRegressor
-    from lightgbm import LGBMRegressor
-    from sklearn.metrics import mean_squared_error, r2_score
+print("\n--- SINIFLANDIRMA SONUÇLARI ---")
+for name, model in clf_models.items():
+    model.fit(X_train_clf, y_train_clf_num)
+    y_pred_clf_num = model.predict(X_test_clf)
+    y_pred_clf = pd.Series(y_pred_clf_num, index=X_test_clf.index).map(inv_label_map)
+    y_test_clf = pd.Series(y_test_clf_num, index=X_test_clf.index).map(inv_label_map)
 
-    # Veri yükleme
-    df = pd.read_csv("winequality-red.csv")
+    # Indexleri eşit, doğrudan karşılaştırabiliriz
+    acc = (y_pred_clf == y_test_clf).mean()
+    clf_results.append({"Model": name, "Accuracy": acc})
 
-    # Bağımsız / bağımlı değişkenler
-    X = df.drop("quality", axis=1)
-    y = df["quality"]
+    print(f"\n{name}: Doğruluk Oranı={acc:.4f}")
+    print(classification_report(y_test_clf, y_pred_clf))
 
-    # Eğitim - test bölme
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Confusion Matrix gösterimi
+    cm = confusion_matrix(y_test_clf, y_pred_clf, labels=["Düşük", "Orta", "Yüksek"])
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Düşük", "Orta", "Yüksek"])
+    disp.plot(cmap="Reds")
+    plt.title(f"{name} - Confusion Matrix")
+    plt.show()
 
-    # Modellsınıf
-    reg_models = {
-        "RandomForest": RandomForestRegressor(random_state=42),
-        "XGBoost": XGBRegressor(random_state=42, n_estimators=200),
-        "LightGBM": LGBMRegressor(random_state=42, n_estimators=200),
-        "LinearRegression": LinearRegression()
-    }
+    plot_feature_importance(model, X_clf, name)
 
-    print("\n--- REGRESYON SONUÇLARI ---")
-    for name, model in reg_models.items():
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        print(f"{name}: MSE={mse:.4f} | R²={r2:.4f}")
+clf_df = pd.DataFrame(clf_results)
+best_clf = clf_df.loc[clf_df["Accuracy"].idxmax()]
+print(f"\nSınıflandırmada en iyi model: {best_clf['Model']} (Accuracy={best_clf['Accuracy']:.4f})")
 
-        # Feature importance (LinearRegression hariç)
-     if hasattr(model, "feature_importances_"):
-         importances = model.feature_importances_
-        feat_df = pd.DataFrame({"Feature": X.columns, "Importance": importances})
-      feat_df = feat_df.sort_values(by="Importance", ascending=False)
-
-            plt.figure(figsize=(8, 4))
-            plt.bar(feat_df["Feature"], feat_df["Importance"])
-            plt.xticks(rotation=45)
-            plt.title(f"{name} - Feature Importance (Regresyon)")
-            plt.tight_layout()
-            plt.show()
-
-
-####################MODEL SINIFLANDIRMA###########
-            from sklearn.ensemble import RandomForestClassifier
-            from sklearn.linear_model import LogisticRegression
-            from xgboost import XGBClassifier
-            from lightgbm import LGBMClassifier
-            from sklearn.metrics import classification_report, confusion_matrix
-            import matplotlib.pyplot as plt
-
-
-            # Kaliteyi kategorilere ayırma
-            def label_quality(q):
-                if q <= 5:
-                    return "düşük"
-                elif q == 6:
-                    return "orta"
-                else:
-                    return "yüksek"
-
-
-            df["quality_label"] = df["quality"].apply(label_quality)
-
-            # Bağımsız / bağımlı değişkenler
-            X = df.drop(["quality", "quality_label"], axis=1)
-            y = df["quality_label"]
-
-            # Eğitim - test bölme
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-            # Modeller
-            clf_models = {
-                "RandomForest": RandomForestClassifier(random_state=42),
-                "XGBoost": XGBClassifier(random_state=42, n_estimators=200, use_label_encoder=False,
-                                         eval_metric="mlogloss"),
-                "LightGBM": LGBMClassifier(random_state=42, n_estimators=200),
-                "LogisticRegression": LogisticRegression(max_iter=1000)
-            }
-
-            print("\n--- SINIFLANDIRMA SONUÇLARI ---")
-            for name, model in clf_models.items():
-                model.fit(X_train, y_train)
-                y_pred = model.predict(X_test)
-                acc = (y_pred == y_test).mean()
-                print(f"\n{name}: Doğruluk Oranı={acc:.4f}")
-                print(classification_report(y_test, y_pred))
-                print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-
-                # Feature importance (LogisticRegression hariç)
-                if hasattr(model, "feature_importances_"):
-                    importances = model.feature_importances_
-                    feat_df = pd.DataFrame({"Feature": X.columns, "Importance": importances})
-                    feat_df = feat_df.sort_values(by="Importance", ascending=False)
-
-                    plt.figure(figsize=(8, 4))
-                    plt.bar(feat_df["Feature"], feat_df["Importance"])
-                    plt.xticks(rotation=45)
-                    plt.title(f"{name} - Feature Importance (Sınıflandırma)")
-                    plt.tight_layout()
-                    plt.show()
+clf_df.plot.bar(x="Model", y="Accuracy", legend=False, color="darkblue", figsize=(8,4), title="Sınıflandırma Modelleri Doğruluk Skorları")
+plt.ylabel("Doğruluk")
+plt.ylim(0,1)
+plt.show()
