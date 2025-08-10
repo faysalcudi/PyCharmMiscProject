@@ -140,3 +140,29 @@ clf_df.plot.bar(x="Model", y="Accuracy", legend=False, color="darkblue", figsize
 plt.ylabel("Doğruluk")
 plt.ylim(0,1)
 plt.show()
+
+
+#Makif
+
+#Random forest grid search
+from sklearn.model_selection import GridSearchCV
+
+# Example for Random Forest Regressor
+param_grid = {
+    "n_estimators": [100, 200, 300],
+    "max_depth": [None, 10, 20, 30],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4]
+}
+
+grid_search = GridSearchCV(RandomForestRegressor(random_state=42), param_grid, cv=5, n_jobs=-1, scoring='neg_mean_squared_error')
+grid_search.fit(X_train_reg, y_train_reg)
+print(f"Best Parameters: {grid_search.best_params_}")
+print(f"Best Score: {grid_search.best_score_}")
+
+# Random forest cross validation
+from sklearn.model_selection import cross_val_score
+
+# Cross-validation for RandomForestRegressor
+cv_scores = cross_val_score(RandomForestRegressor(random_state=42), X_reg, y_reg, cv=5, scoring='neg_mean_squared_error')
+print(f"RandomForest Cross-validation MSE: {-cv_scores.mean()}")
