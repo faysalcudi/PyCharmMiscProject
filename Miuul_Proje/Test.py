@@ -71,34 +71,38 @@ for name, model in base_models.items():
         ('classifier', model)
     ])
 
-# Train and evaluate models
-results = {}
-for name, model in models.items():
-    # Perform grid search with cross validation
-    grid_search = GridSearchCV(model, param_grid[name], cv=5, scoring='accuracy', n_jobs=-1)
-    grid_search.fit(X_train, y_train)
+    # Train and evaluate models
+    results = {}
+    fig, axes = plt.subplots(1, 3, figsize=(24, 6))
+    plot_idx = 0
 
-    # Get best model
-    best_model = grid_search.best_estimator_
-    y_pred = best_model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    results[name] = accuracy
+    for name, model in models.items():
+        # Perform grid search with cross validation
+        grid_search = GridSearchCV(model, param_grid[name], cv=5, scoring='accuracy', n_jobs=-1)
+        grid_search.fit(X_train, y_train)
 
-    print(f"\n{name} Results:")
-    print(f"Best Parameters: {grid_search.best_params_}")
-    print(f"Accuracy: {accuracy:.4f}")
-    print(f"Cross-validation scores: {cross_val_score(best_model, X_train, y_train, cv=5)}")
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
+        # Get best model
+        best_model = grid_search.best_estimator_
+        y_pred = best_model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        results[name] = accuracy
 
-    # Plot confusion matrix
-    plt.figure(figsize=(8, 6))
-    cm = confusion_matrix(y_test, y_pred)
-    plt.imshow(cm, interpolation='nearest', cmap='Blues')
-    plt.title(f'Confusion Matrix - {name}')
-    plt.colorbar()
+        print(f"\n{name} Results:")
+        print(f"Best Parameters: {grid_search.best_params_}")
+        print(f"Accuracy: {accuracy:.4f}")
+        print(f"Cross-validation scores: {cross_val_score(best_model, X_train, y_train, cv=5)}")
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+
+        # Plot confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        axes[plot_idx].imshow(cm, interpolation='nearest', cmap='Blues')
+        axes[plot_idx].set_title(f'Confusion Matrix - {name}')
+        plt.colorbar(axes[plot_idx].imshow(cm, interpolation='nearest', cmap='Blues'), ax=axes[plot_idx])
+        plot_idx += 1
+    
     plt.tight_layout()
-    plt.savefig(f"plot_ConfusionMatrix_{name}.png", dpi=100, bbox_inches="tight")
+    plt.savefig("plot_ConfusionMatrix_all.png", dpi=100, bbox_inches="tight")
     plt.close()
 
 # Plot accuracy comparison
