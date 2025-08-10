@@ -64,7 +64,7 @@ for name, model in models.items():
     plt.colorbar()
     plt.tight_layout()
     # Instead of plt.show()
-    plt.savefig(f"plot_ConfusionMatrix_{name}.png", dpi=600, bbox_inches="tight")
+    plt.savefig(f"plot_ConfusionMatrix_{name}.png", dpi=100, bbox_inches="tight")
     plt.close()
 
 # Plot accuracy comparison
@@ -76,7 +76,7 @@ plt.ylim(0, 1)
 plt.xticks(rotation=45)
 plt.tight_layout()
 # Instead of plt.show()
-plt.savefig("plot_ModelAccuracy.png", dpi=600, bbox_inches="tight")
+plt.savefig("plot_ModelAccuracy.png", dpi=100, bbox_inches="tight")
 plt.close()
 
 # Create new dataframe for outlier analysis
@@ -101,7 +101,7 @@ plt.xticks(rotation=45)
 plt.title('Boxplots Before Outlier Replacement')
 plt.tight_layout()
 # Instead of plt.show()
-plt.savefig("plot_BoxPlots_Before.png", dpi=600, bbox_inches="tight")
+plt.savefig("plot_BoxPlots_Before.png", dpi=200, bbox_inches="tight")
 plt.close()
 
 # Replace outliers
@@ -117,7 +117,7 @@ plt.xticks(rotation=45)
 plt.title('Boxplots After Outlier Replacement')
 plt.tight_layout()
 # Instead of plt.show()
-plt.savefig("plotBoxPlots_After.png", dpi=600, bbox_inches="tight")
+plt.savefig("plotBoxPlots_After.png", dpi=200, bbox_inches="tight")
 plt.close()
 
 # Prepare data for modeling with outlier handled dataset
@@ -151,5 +151,5 @@ plt.xticks(x, results.keys(), rotation=45)
 plt.legend()
 plt.tight_layout()
 # Instead of plt.show()
-plt.savefig("plot_After_Outlier_Accuracy_Comparison.png", dpi=600, bbox_inches="tight")
+plt.savefig("plot_After_Outlier_Accuracy_Comparison.png", dpi=100, bbox_inches="tight")
 plt.close()
