@@ -14,7 +14,7 @@ from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 
-warnings.simplefilter(action='ignore', category=[Warning])
+warnings.simplefilter(action='ignore', category=Warning)
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 500)
@@ -275,7 +275,7 @@ best_models = hyperparameter_optimization(X, y)
 # f1 (After): 0.4057
 # LightGBM best params: {'learning_rate': 0.01, 'n_estimators': 300}
 
-
+"""ayıraç"""
 ######################################################
 # 5. Stacking & Ensemble Learning
 ######################################################
@@ -283,15 +283,32 @@ best_models = hyperparameter_optimization(X, y)
 def voting_classifier(best_models, X, y):
     print("Voting Classifier...")
 
-    voting_clf = VotingClassifier(estimators=[('KNN', best_models["KNN"]),
+    voting_clf = VotingClassifier(estimators=[('CART', best_models["CART"]),
                                               ('RF', best_models["RF"]),
                                               ('LightGBM', best_models["LightGBM"])],
                                   voting='soft').fit(X, y)
 
-    cv_results = cross_validate(voting_clf, X, y, cv=3, scoring=["accuracy", "f1", "roc_auc"])
+    cv_results = cross_validate(voting_clf, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
     print(f"Accuracy: {cv_results['test_accuracy'].mean()}")
     print(f"F1Score: {cv_results['test_f1'].mean()}")
     print(f"ROC_AUC: {cv_results['test_roc_auc'].mean()}")
     return voting_clf
 
 voting_clf = voting_classifier(best_models, X, y)
+# Accuracy: 0.8768025078369905
+# F1Score: 0.39213852455787934
+# ROC_AUC: 0.8561607338308086
+"ayıraç"
+
+######################################################
+# 6. Prediction for a New Observation
+######################################################
+
+X.columns
+random_user = X.sample(1, random_state=45)
+voting_clf.predict(random_user)
+
+joblib.dump(voting_clf, "voting_clf_1.pkl")
+
+new_model = joblib.load("voting_clf_1.pkl")
+new_model.predict(random_user)
