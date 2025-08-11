@@ -159,12 +159,11 @@ def one_hot_encoder(dataframe, categorical_cols, drop_first=False):
 
 df.head()
 
-df['has_citric_acid'] = pd.cut(x=df['citric_acid'], bins=[-1, 0, 1], labels=[0, 1]).astype("int32")
-
-cat_cols, num_cols, cat_but_car = grab_col_names(df, cat_th=7, car_th=20)
-
-for col in cat_cols:
-    target_summary_with_cat(df, "quality", col)
+#Feature exraction denemesi (LightGBM performansı düştü)
+# df['has_citric_acid'] = pd.cut(x=df['citric_acid'], bins=[-1, 0, 1], labels=[0, 1]).astype("int32")
+# cat_cols, num_cols, cat_but_car = grab_col_names(df, cat_th=7, car_th=20)
+# for col in cat_cols:
+#     target_summary_with_cat(df, "quality", col)
 
 cat_cols = [col for col in cat_cols if "quality" not in col]
 
@@ -197,7 +196,7 @@ def base_models(X, y, scoring="f1"):
                    ('GBM', GradientBoostingClassifier()),
                    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss')),
                    ('LightGBM', LGBMClassifier()),
-                   ('CatBoost', CatBoostClassifier(verbose=False))
+                   #('CatBoost', CatBoostClassifier(verbose=False))
                    ]
 
     for name, classifier in classifiers:
@@ -272,8 +271,29 @@ best_models = hyperparameter_optimization(X, y)
 # XGBoost best params: {'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 200}
 # ########## LightGBM ##########
 # f1 (Before): 0.4095
-# f1 (After): 0.4057
+# f1 (After): 0.4057 / 0.4239 (feature extraction yokken)
 # LightGBM best params: {'learning_rate': 0.01, 'n_estimators': 300}
+
+"ayıraç"
+
+#Feature Importance
+def plot_importance(model, features, num=len(X), save=False):
+    feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
+    plt.figure(figsize=(10, 10))
+    sns.set(font_scale=1)
+    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num])
+    plt.title('Features')
+    plt.tight_layout()
+    plt.show()
+    if save:
+        plt.savefig('importances.png')
+
+plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
+plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
+plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
 
 """ayıraç"""
 ######################################################
@@ -283,7 +303,7 @@ best_models = hyperparameter_optimization(X, y)
 def voting_classifier(best_models, X, y):
     print("Voting Classifier...")
 
-    voting_clf = VotingClassifier(estimators=[('CART', best_models["CART"]),
+    voting_clf = VotingClassifier(estimators=[('XGBoost', best_models["XGBoost"]),
                                               ('RF', best_models["RF"]),
                                               ('LightGBM', best_models["LightGBM"])],
                                   voting='soft').fit(X, y)
@@ -304,11 +324,16 @@ voting_clf = voting_classifier(best_models, X, y)
 # 6. Prediction for a New Observation
 ######################################################
 
-X.columns
-random_user = X.sample(1, random_state=45)
-voting_clf.predict(random_user)
+# X.columns
+# random_user = X.sample(1, random_state=45)
+# voting_clf.predict(random_user)
+#
+joblib.dump(voting_clf, "voting_clf_2.pkl")
+#
+# new_model = joblib.load("voting_clf_1.pkl")
+# new_model.predict(random_user)
 
-joblib.dump(voting_clf, "voting_clf_1.pkl")
+######################################################
+# 7. Feature Importance
+######################################################
 
-new_model = joblib.load("voting_clf_1.pkl")
-new_model.predict(random_user)
