@@ -1,5 +1,8 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+import seaborn as sns
+import numpy as np
+from matplotlib import pyplot as plt
+from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_validate, validation_curve
 
@@ -101,3 +104,78 @@ cv_results = cross_validate(cart_final, X, y, cv=5, scoring=["accuracy", "f1", "
 cv_results['test_accuracy'].mean() # 0.8805544670846395
 cv_results['test_f1'].mean() # 0.44399139048673036
 cv_results['test_roc_auc'].mean() # 0.772745128588193
+
+################################################
+# 6. Feature Importance
+################################################
+
+cart_final.feature_importances_
+
+def plot_importance(model, features, num=len(X), save=False):
+    feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
+    plt.figure(figsize=(10, 10))
+    sns.set(font_scale=1)
+    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num])
+    plt.title('Features')
+    plt.tight_layout()
+    plt.show()
+    if save:
+        plt.savefig('importances.png')
+
+
+plot_importance(cart_final, X, num=5)
+################################################
+# 7. Analyzing Model Complexity with Learning Curves (BONUS)
+################################################
+
+
+train_score, test_score = validation_curve(cart_final, X, y, param_name="max_depth",
+                                           param_range=range(1, 11), scoring="roc_auc", cv=10)
+
+mean_train_score = np.mean(train_score, axis=1)
+mean_test_score = np.mean(test_score, axis=1)
+
+plt.plot(range(1, 11), mean_train_score, label="Training Score", color='b')
+plt.plot(range(1, 11), mean_test_score, label="Validation Score", color='g')
+plt.title("Validation Curve for CART")
+plt.xlabel("Number of max_depth")
+plt.ylabel("AUC")
+plt.tight_layout()
+plt.legend(loc='best')
+plt.show()
+
+#fonksiyonlaştırılmışı
+"""def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv=10):
+    train_score, test_score = validation_curve(
+        model, X=X, y=y, param_name=param_name, param_range=param_range, scoring=scoring, cv=cv)
+
+    mean_train_score = np.mean(train_score, axis=1)
+    mean_test_score = np.mean(test_score, axis=1)
+
+    plt.plot(param_range, mean_train_score,
+             label="Training Score", color='b')
+
+    plt.plot(param_range, mean_test_score,
+             label="Validation Score", color='g')
+
+    plt.title(f"Validation Curve for {type(model).__name__}")
+    plt.xlabel(f"Number of {param_name}")
+    plt.ylabel(f"{scoring}")
+    plt.tight_layout()
+    plt.legend(loc='best')
+    plt.show(block=True)
+
+
+val_curve_params(cart_final, X, y, "max_depth", range(1, 11), scoring="f1")
+
+cart_val_params = [["max_depth", range(1, 11)], ["min_samples_split", range(2, 20)]]
+
+for i in range(len(cart_val_params)):
+    val_curve_params(cart_model, X, y, cart_val_params[i][0], cart_val_params[i][1])"""
+
+################################################
+# 9. Extracting Decision Rules
+################################################
+
+tree_rules = export_text(cart_final, feature_names=list(X.columns))
+print(tree_rules)
