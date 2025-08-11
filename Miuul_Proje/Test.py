@@ -78,7 +78,7 @@ for name, model in base_models.items():
 
     for name, model in models.items():
         # Perform grid search with cross validation
-        grid_search = GridSearchCV(model, param_grid[name], cv=5, scoring='accuracy', n_jobs=-1)
+        grid_search = GridSearchCV(model, param_grid[name], cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
         grid_search.fit(X_train, y_train)
 
         # Get best model
