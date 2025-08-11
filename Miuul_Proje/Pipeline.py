@@ -333,7 +333,3 @@ joblib.dump(voting_clf, "voting_clf_2.pkl")
 # new_model = joblib.load("voting_clf_1.pkl")
 # new_model.predict(random_user)
 
-######################################################
-# 7. Feature Importance
-######################################################
-
