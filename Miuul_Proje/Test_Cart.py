@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_validate, validation_curve
+from imblearn.over_sampling import SMOTE
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 500)
@@ -46,7 +47,14 @@ roc_auc_score(y, y_prob)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=45)
 
+#Resampling
+y_train.value_counts()
+oversample = SMOTE()
+X_smote, y_smote = oversample.fit_resample(X_train, y_train)
+y_smote.value_counts()
+
 cart_model = DecisionTreeClassifier(random_state=17).fit(X_train, y_train)
+# cart_model = DecisionTreeClassifier(random_state=17).fit(X_smote, y_smote)
 
 # Train Hatası
 y_pred = cart_model.predict(X_train)

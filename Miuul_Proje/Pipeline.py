@@ -5,7 +5,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_validate, GridSearchCV
+from sklearn.model_selection import cross_validate, GridSearchCV, train_test_split
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
@@ -13,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
+from imblearn.over_sampling import SMOTE
 
 warnings.simplefilter(action='ignore', category=Warning)
 
@@ -159,7 +161,8 @@ def one_hot_encoder(dataframe, categorical_cols, drop_first=False):
 
 df.head()
 
-#Feature exraction denemesi (LightGBM performansı düştü)
+# Feature exraction denemesi (XGBoost f1 score düştü)
+# df["total_acidity"] = df["fixed_acidity"] + df["volatile_acidity"]
 # df['has_citric_acid'] = pd.cut(x=df['citric_acid'], bins=[-1, 0, 1], labels=[0, 1]).astype("int32")
 # cat_cols, num_cols, cat_but_car = grab_col_names(df, cat_th=7, car_th=20)
 # for col in cat_cols:
@@ -181,29 +184,56 @@ df[num_cols] = pd.DataFrame(X_scaled, columns=df[num_cols].columns)
 y = df["quality"]
 X = df.drop("quality", axis=1)
 
+# Split data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=17)
+
+#Resampling
+# y_train.value_counts()
+# oversample = SMOTE()
+# X_smote, y_smote = oversample.fit_resample(X_train, y_train)
+# y_smote.value_counts()
+
 ######################################################
 # 3. Base Models
 ######################################################
 
-def base_models(X, y, scoring="f1"):
+def base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1"):
     print("Base Models....")
-    classifiers = [('LR', LogisticRegression()),
-                   ('KNN', KNeighborsClassifier()),
-                   ("SVC", SVC()),
-                   ("CART", DecisionTreeClassifier()),
+    classifiers = [
+                   # ('LR', LogisticRegression()),
+                   # ('KNN', KNeighborsClassifier()),
+                   # ("SVC", SVC()),
+                   # ("CART", DecisionTreeClassifier()),
                    ("RF", RandomForestClassifier()),
-                   ('Adaboost', AdaBoostClassifier()),
-                   ('GBM', GradientBoostingClassifier()),
+                   # ('Adaboost', AdaBoostClassifier()),
+                   # ('GBM', GradientBoostingClassifier()),
                    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss')),
-                   ('LightGBM', LGBMClassifier()),
-                   #('CatBoost', CatBoostClassifier(verbose=False))
+                   # ('LightGBM', LGBMClassifier()),
+                   # ('CatBoost', CatBoostClassifier(verbose=False))
                    ]
 
+    print("Cross Validation Results:")
     for name, classifier in classifiers:
         cv_results = cross_validate(classifier, X, y, cv=5, scoring=scoring)
         print(f"{scoring}: {round(cv_results['test_score'].mean(), 4)} ({name}) ")
 
-base_models(X, y, scoring="f1")
+    # print("\nTrain-Test Split Results:")
+    # for name, classifier in classifiers:
+    #     # Train model
+    #     classifier.fit(X_train, y_train)
+    #     # Make predictions
+    #     y_pred = classifier.predict(X_test)
+    #     # Calculate metrics
+    #     if scoring == "f1":
+    #         score = f1_score(y_test, y_pred)
+    #     elif scoring == "accuracy":
+    #         score = accuracy_score(y_test, y_pred)
+    #     elif scoring == "roc_auc":
+    #         y_prob = classifier.predict_proba(X_test)[:, 1]
+    #         score = roc_auc_score(y_test, y_prob)
+    #     print(f"{scoring}: {round(score, 4)} ({name}) ")
+
+base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1")
 
 ######################################################
 # 4. Automated Hyperparameter Optimization
@@ -217,23 +247,25 @@ cart_params = {'max_depth': range(1, 20),
 rf_params = {"max_depth": [8, 15, None],
              "max_features": [5, 7, "auto"],
              "min_samples_split": [15, 20],
-             "n_estimators": [200, 300]}
+             "n_estimators": [200, 300],
+             "class_weight": ["balanced"]}
 
 xgboost_params = {"learning_rate": [0.1, 0.01],
                   "max_depth": [5, 8],
-                  "n_estimators": [100, 200]}
+                  "n_estimators": [100, 200],
+                  "scale_pos_weight": [5]}
 
 lightgbm_params = {"learning_rate": [0.01, 0.1],
                    "n_estimators": [300, 500]}
 
 
-classifiers = [('KNN', KNeighborsClassifier(), knn_params),
-               ("CART", DecisionTreeClassifier(), cart_params),
+classifiers = [
+               # ('KNN', KNeighborsClassifier(), knn_params),
+               # ("CART", DecisionTreeClassifier(), cart_params),
                ("RF", RandomForestClassifier(), rf_params),
                ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss'), xgboost_params),
-               ('LightGBM', LGBMClassifier(), lightgbm_params)]
-
-
+               # ('LightGBM', LGBMClassifier(), lightgbm_params)
+               ]
 
 def hyperparameter_optimization(X, y, cv=5, scoring="f1"):
     print("Hyperparameter Optimization....")
@@ -252,48 +284,26 @@ def hyperparameter_optimization(X, y, cv=5, scoring="f1"):
         best_models[name] = final_model
     return best_models
 
-best_models = hyperparameter_optimization(X, y)
-# ########## KNN ##########
-# f1 (Before): 0.3465
-# f1 (After): 0.2836
-# KNN best params: {'n_neighbors': 49}
-# ########## CART ##########
-# f1 (Before): 0.3513
-# f1 (After): 0.4403
-# CART best params: {'max_depth': 2, 'min_samples_split': 2}
-# ########## RF ##########
-# f1 (Before): 0.3468
-# f1 (After): 0.3724
-# RF best params: {'max_depth': 8, 'max_features': 7, 'min_samples_split': 15, 'n_estimators': 200}
-# ########## XGBoost ##########
-# f1 (Before): 0.3834
-# f1 (After): 0.3483
-# XGBoost best params: {'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 200}
-# ########## LightGBM ##########
-# f1 (Before): 0.4095
-# f1 (After): 0.4057 / 0.4239 (feature extraction yokken)
-# LightGBM best params: {'learning_rate': 0.01, 'n_estimators': 300}
-
-"ayıraç"
+best_models = hyperparameter_optimization(X, y, scoring="f1")
 
 #Feature Importance
-def plot_importance(model, features, num=len(X), save=False):
-    feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
-    plt.figure(figsize=(10, 10))
-    sns.set(font_scale=1)
-    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num])
-    plt.title('Features')
-    plt.tight_layout()
-    plt.show()
-    if save:
-        plt.savefig('importances.png')
-
-plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
-plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
-plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
+# def plot_importance(model, features, num=len(X), save=False):
+#     feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
+#     plt.figure(figsize=(10, 10))
+#     sns.set(font_scale=1)
+#     sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num])
+#     plt.title('Features')
+#     plt.tight_layout()
+#     plt.show()
+#     if save:
+#         plt.savefig('importances.png')
+#
+# plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
+# plot_importance(plotmodel, X)
+# plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
+# plot_importance(plotmodel, X)
+# plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
+# plot_importance(plotmodel, X)
 
 """ayıraç"""
 ######################################################
@@ -328,8 +338,7 @@ voting_clf = voting_classifier(best_models, X, y)
 # random_user = X.sample(1, random_state=45)
 # voting_clf.predict(random_user)
 #
-joblib.dump(voting_clf, "voting_clf_2.pkl")
+# joblib.dump(voting_clf, "voting_clf_2.pkl")
 #
 # new_model = joblib.load("voting_clf_1.pkl")
 # new_model.predict(random_user)
-
