@@ -206,16 +206,27 @@ def base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1"):
                    ("CART", DecisionTreeClassifier()),
                    ("RF", RandomForestClassifier()),
                    ('Adaboost', AdaBoostClassifier()),
-                   ('GBM', GradientBoostingClassifier()),
                    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss')),
                    ('LightGBM', LGBMClassifier()),
                    # ('CatBoost', CatBoostClassifier(verbose=False))
                    ]
 
     print("Cross Validation Results:")
+    scores = []
+    names = []
     for name, classifier in classifiers:
         cv_results = cross_validate(classifier, X, y, cv=5, scoring=scoring)
+        scores.append(cv_results['test_score'].mean())
+        names.append(name)
         print(f"{scoring}: {round(cv_results['test_score'].mean(), 4)} ({name}) ")
+
+    plt.figure(figsize=(10, 6))
+    plt.bar(names, scores)
+    plt.xticks(rotation=45)
+    plt.ylabel(f'{scoring} Score')
+    plt.title('Model Performance Comparison')
+    plt.tight_layout()
+    plt.show()
 
     print("\nTrain-Test Split Results:")
     for name, classifier in classifiers:
@@ -267,21 +278,48 @@ classifiers = [
                ('LightGBM', LGBMClassifier(), lightgbm_params)
                ]
 
+
 def hyperparameter_optimization(X, y, cv=5, scoring="f1"):
     print("Hyperparameter Optimization....")
     best_models = {}
+    before_scores = []
+    after_scores = []
+    model_names = []
+
     for name, classifier, params in classifiers:
         print(f"########## {name} ##########")
         cv_results = cross_validate(classifier, X, y, cv=cv, scoring=scoring)
-        print(f"{scoring} (Before): {round(cv_results['test_score'].mean(), 4)}")
+        before_score = cv_results['test_score'].mean()
+        print(f"{scoring} (Before): {round(before_score, 4)}")
 
         gs_best = GridSearchCV(classifier, params, cv=cv, n_jobs=-1, verbose=False).fit(X, y)
         final_model = classifier.set_params(**gs_best.best_params_)
 
         cv_results = cross_validate(final_model, X, y, cv=cv, scoring=scoring)
-        print(f"{scoring} (After): {round(cv_results['test_score'].mean(), 4)}")
+        after_score = cv_results['test_score'].mean()
+        print(f"{scoring} (After): {round(after_score, 4)}")
         print(f"{name} best params: {gs_best.best_params_}", end="\n\n")
+
+        model_names.append(name)
+        before_scores.append(before_score)
+        after_scores.append(after_score)
         best_models[name] = final_model
+
+    plt.figure(figsize=(10, 6))
+    x = range(len(model_names))
+    width = 0.35
+
+    plt.bar([i - width / 2 for i in x], before_scores, width, label='Before', color='skyblue')
+    plt.bar([i + width / 2 for i in x], after_scores, width, label='After', color='lightgreen')
+
+    plt.xlabel('Models')
+    plt.ylabel(scoring.capitalize() + ' Score')
+    plt.title('Model Performance Comparison - Before vs After Optimization')
+    plt.xticks(x, model_names, rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
     return best_models
 
 best_models = hyperparameter_optimization(X, y, scoring="f1")
@@ -298,13 +336,6 @@ def plot_importance(model, features, num=len(X), save=False):
     plt.show()
     if save:
         plt.savefig('importances.png')
-
-plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
-plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
-plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
-plot_importance(plotmodel, X)
 
 plotmodel = best_models["XGBoost"].fit(X, y)
 plot_importance(plotmodel, X)
@@ -337,11 +368,12 @@ voting_clf = voting_classifier(best_models, X, y)
 ######################################################
 # 6. Prediction for a New Observation
 ######################################################
+random_data = X.sample(1, random_state=45)
+best_models["XGBoost"].fit(X, y).predict(random_data)
+voting_clf.predict(random_data)
 
-# X.columns
-# random_user = X.sample(1, random_state=45)
-# voting_clf.predict(random_user)
-#
+
+#Modeli kaydetmek için
 # joblib.dump(voting_clf, "voting_clf_2.pkl")
 #
 # new_model = joblib.load("voting_clf_1.pkl")
