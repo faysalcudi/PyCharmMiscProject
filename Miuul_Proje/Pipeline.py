@@ -368,6 +368,10 @@ voting_clf = voting_classifier(best_models, X, y)
 ######################################################
 # 6. Prediction for a New Observation
 ######################################################
+cv_results = cross_validate(best_models["XGBoost"].fit(X, y), X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
+print(f"Accuracy: {cv_results['test_accuracy'].mean()}")
+print(f"F1Score: {cv_results['test_f1'].mean()}")
+print(f"ROC_AUC: {cv_results['test_roc_auc'].mean()}")
 random_data = X.sample(1, random_state=45)
 best_models["XGBoost"].fit(X, y).predict(random_data)
 voting_clf.predict(random_data)
