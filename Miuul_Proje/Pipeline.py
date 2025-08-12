@@ -188,10 +188,10 @@ X = df.drop("quality", axis=1)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=17)
 
 #Resampling
-# y_train.value_counts()
-# oversample = SMOTE()
-# X_smote, y_smote = oversample.fit_resample(X_train, y_train)
-# y_smote.value_counts()
+y_train.value_counts()
+oversample = SMOTE()
+X_smote, y_smote = oversample.fit_resample(X_train, y_train)
+y_smote.value_counts()
 
 ######################################################
 # 3. Base Models
@@ -200,15 +200,15 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 def base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1"):
     print("Base Models....")
     classifiers = [
-                   # ('LR', LogisticRegression()),
-                   # ('KNN', KNeighborsClassifier()),
-                   # ("SVC", SVC()),
-                   # ("CART", DecisionTreeClassifier()),
+                   ('LR', LogisticRegression()),
+                   ('KNN', KNeighborsClassifier()),
+                   ("SVC", SVC()),
+                   ("CART", DecisionTreeClassifier()),
                    ("RF", RandomForestClassifier()),
-                   # ('Adaboost', AdaBoostClassifier()),
-                   # ('GBM', GradientBoostingClassifier()),
+                   ('Adaboost', AdaBoostClassifier()),
+                   ('GBM', GradientBoostingClassifier()),
                    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss')),
-                   # ('LightGBM', LGBMClassifier()),
+                   ('LightGBM', LGBMClassifier()),
                    # ('CatBoost', CatBoostClassifier(verbose=False))
                    ]
 
@@ -217,21 +217,21 @@ def base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1"):
         cv_results = cross_validate(classifier, X, y, cv=5, scoring=scoring)
         print(f"{scoring}: {round(cv_results['test_score'].mean(), 4)} ({name}) ")
 
-    # print("\nTrain-Test Split Results:")
-    # for name, classifier in classifiers:
-    #     # Train model
-    #     classifier.fit(X_train, y_train)
-    #     # Make predictions
-    #     y_pred = classifier.predict(X_test)
-    #     # Calculate metrics
-    #     if scoring == "f1":
-    #         score = f1_score(y_test, y_pred)
-    #     elif scoring == "accuracy":
-    #         score = accuracy_score(y_test, y_pred)
-    #     elif scoring == "roc_auc":
-    #         y_prob = classifier.predict_proba(X_test)[:, 1]
-    #         score = roc_auc_score(y_test, y_prob)
-    #     print(f"{scoring}: {round(score, 4)} ({name}) ")
+    print("\nTrain-Test Split Results:")
+    for name, classifier in classifiers:
+        # Train model
+        classifier.fit(X_train, y_train)
+        # Make predictions
+        y_pred = classifier.predict(X_test)
+        # Calculate metrics
+        if scoring == "f1":
+            score = f1_score(y_test, y_pred)
+        elif scoring == "accuracy":
+            score = accuracy_score(y_test, y_pred)
+        elif scoring == "roc_auc":
+            y_prob = classifier.predict_proba(X_test)[:, 1]
+            score = roc_auc_score(y_test, y_prob)
+        print(f"{scoring}: {round(score, 4)} ({name}) ")
 
 base_models(X, y, X_train, X_test, y_train, y_test, scoring="f1")
 
@@ -260,11 +260,11 @@ lightgbm_params = {"learning_rate": [0.01, 0.1],
 
 
 classifiers = [
-               # ('KNN', KNeighborsClassifier(), knn_params),
-               # ("CART", DecisionTreeClassifier(), cart_params),
+               ('KNN', KNeighborsClassifier(), knn_params),
+               ("CART", DecisionTreeClassifier(), cart_params),
                ("RF", RandomForestClassifier(), rf_params),
                ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss'), xgboost_params),
-               # ('LightGBM', LGBMClassifier(), lightgbm_params)
+               ('LightGBM', LGBMClassifier(), lightgbm_params)
                ]
 
 def hyperparameter_optimization(X, y, cv=5, scoring="f1"):
@@ -287,23 +287,27 @@ def hyperparameter_optimization(X, y, cv=5, scoring="f1"):
 best_models = hyperparameter_optimization(X, y, scoring="f1")
 
 #Feature Importance
-# def plot_importance(model, features, num=len(X), save=False):
-#     feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
-#     plt.figure(figsize=(10, 10))
-#     sns.set(font_scale=1)
-#     sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num])
-#     plt.title('Features')
-#     plt.tight_layout()
-#     plt.show()
-#     if save:
-#         plt.savefig('importances.png')
-#
-# plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
-# plot_importance(plotmodel, X)
-# plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
-# plot_importance(plotmodel, X)
-# plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
-# plot_importance(plotmodel, X)
+def plot_importance(model, features, num=len(X), save=False):
+    feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
+    plt.figure(figsize=(10, 10))
+    sns.set(font_scale=1)
+    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False)[0:num],
+                palette=sns.dark_palette("red", n_colors=len(feature_imp), reverse=True))
+    plt.title('Features')
+    plt.tight_layout()
+    plt.show()
+    if save:
+        plt.savefig('importances.png')
+
+plotmodel = DecisionTreeClassifier(max_depth=2, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
+plotmodel = RandomForestClassifier(max_depth=15, max_features=5, min_samples_split=15, n_estimators=200, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
+plotmodel = LGBMClassifier(learning_rate=0.01, n_estimators=500, random_state=1).fit(X, y)
+plot_importance(plotmodel, X)
+
+plotmodel = best_models["XGBoost"].fit(X, y)
+plot_importance(plotmodel, X)
 
 """ayıraç"""
 ######################################################
